@@ -9,12 +9,23 @@
 <body>
     <h1>Deckbuilder Card Battler</h1>
     <div id="game-container"></div>
-    
-    <py-config>
-        packages = ["pygame-ce"]
-        [[fetch]]
-        files = ["./main.py", "./src/data/cards.json", "./src/card.py", "./src/player.py", "./src/enemy.py", "./src/ui.py", "./src/layout.py"]
-    </py-config>
+
+    <script type="py-config">
+        {
+            "packages": ["pygame-ce"],
+            "fetch": [
+                {
+                    "files": [
+                        "./main.py", "./src/data/cards.json", "./src/card.py", 
+                        "./src/player.py", "./src/enemy.py", "./src/ui.py", "./src/layout.py"
+                    ]
+                },
+                {
+                    "from": "./assets/images/cards/", "to_folder": "assets/images/cards"
+                }
+            ]
+        }
+    </script>
     <py-script src="./main.py">
     </py-script>
 </body>
