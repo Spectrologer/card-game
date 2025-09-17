@@ -11,22 +11,20 @@
     <div id="game-container"></div>
 
     <script type="py-config">
-        {
-            "packages": ["pygame-ce"],
-            "fetch": [
-                {
-                    "files": [
-                        "main.py", "src/data/cards.json", "src/card.py", 
-                        "src/player.py", "src/enemy.py", "src/ui.py", "src/layout.py"
-                    ]
-                },
-                {
-                    "from": "assets/images/cards/", "to_folder": "assets/images/cards/"
-                }
-            ]
-        }
+        packages = ["pygame-ce"]
+
+        [[fetch]]
+        files = ["main.py", "src/card.py", "src/player.py", "src/enemy.py", "src/ui.py", "src/layout.py"]
+
+        [[fetch]]
+        from = "src/data/"
+        to_folder = "src/data"
+
+        [[fetch]]
+        from = "assets/images/cards/"
+        to_folder = "assets/images/cards"
     </script>
-    <py-script src="main.py">
+    <py-script src="main.py" target="game-container">
     </py-script>
 </body>
 </html>

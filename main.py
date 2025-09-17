@@ -61,6 +61,10 @@ def reset_game(player: Player, all_cards: dict, width: int, height: int, combat_
 async def main():
     """Main game function."""
 
+    # --- PyScript/Web Specific Setup ---
+    # This tells pygame to render to the div specified in the <py-script> tag's "target"
+    os.environ["PYGAME_BLEND_ALPHA_SDL2"] = "1"
+
     pygame.init()
 
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
