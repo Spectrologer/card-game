@@ -22,7 +22,7 @@ def load_cards():
     """Loads all card definitions from the JSON file."""
     try:
         # In PyScript, the path is relative to the root where files are fetched.
-        json_path = './src/data/cards.json'
+        json_path = 'src/data/cards.json'
         with open(json_path, "r") as f:
             all_card_data = json.load(f)
             # Create a dictionary of Card objects, keyed by their ID
