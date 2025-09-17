@@ -9,11 +9,11 @@
 <body>
     <h1>Deckbuilder Card Battler</h1>
     <div id="game-container"></div>
-
+    
     <py-config>
         packages = ["pygame-ce"]
         [[fetch]]
-        files = ["./src/data/cards.json", "./src/card.py", "./src/player.py", "./src/enemy.py", "./src/ui.py", "./src/layout.py"]
+        files = ["./main.py", "./src/data/cards.json", "./src/card.py", "./src/player.py", "./src/enemy.py", "./src/ui.py", "./src/layout.py"]
     </py-config>
     <py-script src="./main.py">
     </py-script>
