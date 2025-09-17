@@ -2,9 +2,11 @@ import pygame
 import sys
 import json
 import os
+import asyncio # Import asyncio for the web game loop
 
 # Add the 'src' directory to the Python path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
+# This is not needed for PyScript as it uses a virtual filesystem.
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), 'src')))
 
 from src.card import Card 
 from src.ui import Button, draw_text
@@ -19,9 +21,8 @@ WINDOW_TITLE = "Deckbuilder Card Battler"
 def load_cards():
     """Loads all card definitions from the JSON file."""
     try:
-        # Build a reliable path to the data file
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        json_path = os.path.join(current_dir, 'src', 'data', 'cards.json')
+        # In PyScript, the path is relative to the root where files are fetched.
+        json_path = './src/data/cards.json'
         with open(json_path, "r") as f:
             all_card_data = json.load(f)
             # Create a dictionary of Card objects, keyed by their ID
@@ -57,7 +58,7 @@ def reset_game(player: Player, all_cards: dict, width: int, height: int, combat_
     new_enemy = Enemy(width // 2, height // 2 - 100, hp=new_hp)
     return new_enemy
 
-def main():
+async def main():
     """Main game function."""
 
     pygame.init()
@@ -145,7 +146,7 @@ def main():
 
     running = True
     while running:
-        for event in pygame.event.get():
+        for event in pygame.event.get(): # Regular event loop
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.VIDEORESIZE:
@@ -359,9 +360,12 @@ def main():
 
         pygame.display.flip() # Update the full display Surface to the screen
         clock.tick(60) # Limit frame rate to 60 FPS
+        await asyncio.sleep(0) # Yield control to the browser
 
     pygame.quit()
-    sys.exit()
+    # sys.exit() is not needed in the browser and can cause issues.
 
 if __name__ == "__main__":
-    main()
+    # PyScript runs the top-level code. We use asyncio.run to start our async main function.
+    # This makes the game loop compatible with the browser's event model.
+    asyncio.run(main())

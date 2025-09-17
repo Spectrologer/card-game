@@ -46,11 +46,8 @@ class Card:
     def load_image(self):
         """Loads the card's image from the artwork filename."""
         try:
-            # --- Build a reliable, absolute path to the assets folder from the project root ---
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            # Go up one level from 'src' to the project root directory
-            project_root = os.path.join(current_dir, '..')
-            base_path = os.path.join(project_root, 'assets', 'images', 'cards')
+            # --- For web deployment, paths must be relative to the index.html file ---
+            base_path = os.path.join('assets', 'images', 'cards')
             # Construct the full path to the image
             image_path = os.path.join(base_path, self.artwork_filename)
             self.image = pygame.image.load(image_path).convert_alpha()
