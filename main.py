@@ -33,7 +33,7 @@ def load_cards():
         print("Error: Could not decode cards.json!")
         return {}
 
-def reset_game(player: Player, all_cards: dict, width: int, height: int) -> Enemy:
+def reset_game(player: Player, all_cards: dict, width: int, height: int, combat_count: int) -> Enemy:
     """Resets the game to its initial state and returns a new Enemy instance."""
     print("--- Resetting Game ---")
     # Create a new starting deck with fresh card copies
@@ -41,17 +41,20 @@ def reset_game(player: Player, all_cards: dict, width: int, height: int) -> Enem
     defend_template = all_cards.get("card_002")
     starting_deck = []
     if strike_template and defend_template:
-        for _ in range(10):
+        for _ in range(5): # Let's reduce the starting deck size for better testing/gameplay
             starting_deck.append(strike_template.copy())
-        for _ in range(10):
+        for _ in range(5):
             starting_deck.append(defend_template.copy())
 
-    player.reset_stats() # Reset HP, Energy, etc. to their maximums
+    # player.reset_stats() is now called from main() on first run
     player.set_deck(starting_deck)
     player.start_new_combat()
 
     # Create and return a new enemy for the new game
-    new_enemy = Enemy(width // 2, height // 2 - 100)
+    # Scale enemy HP based on combat count. 25% increase per combat.
+    base_hp = 10 # The HP of the first enemy
+    new_hp = int(base_hp * (1 + 0.25 * combat_count))
+    new_enemy = Enemy(width // 2, height // 2 - 100, hp=new_hp)
     return new_enemy
 
 def main():
@@ -62,6 +65,9 @@ def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.RESIZABLE)
     pygame.display.set_caption(WINDOW_TITLE)
     clock = pygame.time.Clock()
+
+    # --- Game Variables ---
+    combat_count = 0
 
     all_cards = load_cards()
     print(f"Loaded {len(all_cards)} cards!")
@@ -75,16 +81,7 @@ def main():
     # We'll use the loaded cards as templates.
     strike_template = all_cards.get("card_001")
     defend_template = all_cards.get("card_002")
-    starting_deck = []
-    if strike_template and defend_template:
-        for _ in range(10):
-            starting_deck.append(strike_template.copy())
-        for _ in range(10):
-            starting_deck.append(defend_template.copy())
-
-    player.reset_stats() # Reset HP, Energy, etc.
-    player.set_deck(starting_deck)
-    player.start_new_combat()
+    enemy = reset_game(player, all_cards, SCREEN_WIDTH, SCREEN_HEIGHT, combat_count)
 
     # --- Game State Machine ---
     # The game can only be in one of these states at a time.
@@ -104,7 +101,7 @@ def main():
     layout = UILayout(SCREEN_WIDTH, SCREEN_HEIGHT)
 
     # --- Enemy ---
-    enemy = Enemy(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 - 100)
+    # enemy is now initialized by reset_game
 
     # --- Dynamic UI positioning ---
     # We need a function to reposition elements when the screen resizes
@@ -163,15 +160,6 @@ def main():
                 if end_turn_button.is_clicked(event):
                     game_state = "ENEMY_ANNOUNCE"
                 
-                # Check if the draw pile was clicked
-                if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                    if layout.draw_pile_area.collidepoint(event.pos) and player.cards_drawn_this_turn < 1:
-                        if player.cards_drawn_this_turn < 1:
-                            if not player.draw_card(): # draw_card returns False if it fails
-                                game_over_reason = "Draw pile is empty!"
-                                game_state = "GAME_OVER"
-                            position_ui_elements(screen.get_width(), screen.get_height()) # Reposition hand
-
                 # Check for card clicks (iterate backwards to safely remove items)
                 for card in reversed(player.hand):
                     if card.rect and event.type == pygame.MOUSEBUTTONUP and event.button == 1:
@@ -182,10 +170,15 @@ def main():
                                 continue
                             player.play_card(card, enemy) # This can fail if not enough energy
                             position_ui_elements(screen.get_width(), screen.get_height()) # Reposition hand
+                            # --- Immediate check for enemy defeat after a card is played ---
+                            if enemy.hp <= 0:
+                                game_state = "COMBAT_WIN"
                             break # Stop after playing one card to avoid multiple plays on one click
             elif game_state == "GAME_OVER":
                 if restart_button.is_clicked(event):
-                    enemy = reset_game(player, all_cards, screen.get_width(), screen.get_height()) # This resets player.hp
+                    combat_count = 0 # Reset combat count on game over
+                    player.reset_stats() # Fully reset player HP for a new run
+                    enemy = reset_game(player, all_cards, screen.get_width(), screen.get_height(), combat_count) # This resets player.hp
                     restart_button.rect.center = (screen.get_width() // 2, screen.get_height() // 2 + 50)
                     position_ui_elements(screen.get_width(), screen.get_height())
                     game_state = "PLAYER_TURN"
@@ -194,7 +187,9 @@ def main():
                     running = False
             elif game_state == "COMBAT_WIN":
                 if restart_button.is_clicked(event): # We'll reuse the restart button for "Next Combat"
-                    enemy = reset_game(player, all_cards, screen.get_width(), screen.get_height())
+                    combat_count += 1
+                    # Player stats like HP carry over to the next combat
+                    enemy = reset_game(player, all_cards, screen.get_width(), screen.get_height(), combat_count)
                     position_ui_elements(screen.get_width(), screen.get_height())
                     game_state = "PLAYER_TURN"
                 if close_button.is_clicked(event):
@@ -213,7 +208,7 @@ def main():
                 game_over_reason = "You have been defeated!"
                 game_state = "GAME_OVER"
             # Auto-end turn if player has no energy for any cards
-            elif player.energy <= 0 and any(card.cost > 0 for card in player.hand):
+            elif (player.energy <= 0 and any(card.cost > 0 for card in player.hand)) or not player.hand:
                 game_state = "ENEMY_ANNOUNCE"
 
         elif game_state == "ENEMY_ANNOUNCE":
@@ -240,6 +235,12 @@ def main():
             
             if not enemy or enemy.animation_state == "idle":
                 player.end_turn() # Reset player energy and draw count
+                # --- Auto-draw a card at the start of the turn ---
+                if not player.draw_card():
+                    game_over_reason = "Draw pile is empty!"
+                    game_state = "GAME_OVER"
+                else:
+                    position_ui_elements(screen.get_width(), screen.get_height())
                 game_state = "PLAYER_TURN"
 
         elif game_state == "GAME_OVER":
@@ -253,6 +254,10 @@ def main():
 
         # --- Drawing based on Game State ---
         if game_state not in ["GAME_OVER", "COMBAT_WIN"]:
+            # --- Draw Combat Number ---
+            combat_text = f"Combat {combat_count + 1}"
+            draw_text(screen, combat_text, screen.get_width() // 2 - 50, 15, font_size=32, color=(220, 220, 220))
+
             # --- Draw normal game UI ---
             player.draw(screen)
             if enemy:
@@ -262,12 +267,29 @@ def main():
                 stats_rect.midtop = enemy.rect.midbottom
                 draw_text(screen, stats_text, stats_rect.x, stats_rect.y, font_size=28, color=(220, 220, 220))
             
-            # Deck/Discard Info
-            deck_info_pos = layout.deck_info_area.topleft
-            draw_pile_text = f"Draw Pile: {len(player.draw_pile)}"
-            discard_pile_text = f"Discard Pile: {len(player.discard_pile)}"
-            draw_text(screen, draw_pile_text, deck_info_pos[0], deck_info_pos[1] + 30, color=(200, 200, 200))
-            draw_text(screen, discard_pile_text, deck_info_pos[0], deck_info_pos[1], color=(200, 200, 200))
+            # --- Deck Composition Display ---
+            # This should reflect all cards currently in play for the combat (draw + discard + hand)
+            deck_composition = {}
+            # Let's count from the master deck list for consistency
+            for card in player.deck:
+                deck_composition[card.name] = deck_composition.get(card.name, 0) + 1
+            
+            # Draw from the bottom up for scalability
+            deck_info_pos = layout.draw_pile_area.topleft
+            line_height = 22
+            # Start drawing just above the draw pile area and move upwards
+            start_y = layout.draw_pile_area.top - line_height
+            for i, (name, count) in enumerate(deck_composition.items()):
+                text = f"{name}: {count}"
+                draw_text(screen, text, deck_info_pos[0], start_y - (i * line_height), font_size=24, color=(200, 200, 200))
+
+            # Discard Pile Info
+            # This is now drawn as part of the pile itself
+
+            # Draw/Discard Pile visuals
+            pygame.draw.rect(screen, (50, 50, 80), layout.draw_pile_area, border_radius=10)
+            draw_text(screen, "Deck", layout.draw_pile_area.centerx - 25, layout.draw_pile_area.centery - 30)
+            draw_text(screen, str(len(player.draw_pile)), layout.draw_pile_area.centerx - 10, layout.draw_pile_area.centery, font_size=36)
             
             # Player Stats
             stats_pos = layout.player_stats_area.topleft
@@ -278,12 +300,9 @@ def main():
             draw_text(screen, player_armor_text, stats_pos[0], stats_pos[1] + 30, font_size=32, color=(180, 180, 255))
             draw_text(screen, player_energy_text, stats_pos[0], stats_pos[1] + 60, font_size=32, color=(200, 200, 255))
             
-            # Draw/Discard Pile visuals
-            pygame.draw.rect(screen, (50, 50, 80), layout.draw_pile_area, border_radius=10)
-            draw_text(screen, "Draw", layout.draw_pile_area.centerx - 25, layout.draw_pile_area.centery - 30)
-            draw_text(screen, str(len(player.draw_pile)), layout.draw_pile_area.centerx - 10, layout.draw_pile_area.centery, font_size=36)
             pygame.draw.rect(screen, (80, 50, 50), layout.discard_pile_area, border_radius=10)
             draw_text(screen, "Discard", layout.discard_pile_area.centerx - 40, layout.discard_pile_area.centery - 15)
+            draw_text(screen, str(len(player.discard_pile)), layout.discard_pile_area.centerx - 10, layout.discard_pile_area.centery + 5, font_size=36)
 
             # Draw cards in hand
             hovered_card = None
@@ -307,11 +326,6 @@ def main():
         elif game_state == "GAME_OVER":
             # Draw elements common to both playing and game over (the background scene)
             player.draw(screen)
-            if enemy:
-                enemy.draw(screen)
-                stats_text = f"HP: {enemy.hp} | Armor: {enemy.armor} | Attack: {enemy.attack_damage}"
-                stats_rect = pygame.Rect(0, 0, 300, 30)
-                stats_rect.midtop = enemy.rect.midbottom
 
             # Draw the game over overlay
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
@@ -327,9 +341,6 @@ def main():
 
         elif game_state == "COMBAT_WIN":
             # Draw the background scene
-            player.draw(screen)
-            if enemy: # Draw the defeated enemy
-                enemy.draw(screen)
 
             # Draw the victory overlay
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)

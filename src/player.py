@@ -83,7 +83,9 @@ class Player:
         if card.type == "Attack":
             # For now, we assume attacks always target the passed 'target'
             target.hp -= card.value
-            print(f"Played {card.name}, dealing {card.value} damage to {type(target).__name__}. Enemy HP: {target.hp}")
+            print(f"Played {card.name}, dealing {card.value} damage to {type(target).__name__}. Enemy HP is now {target.hp}.")
+            if target.hp <= 0:
+                print(f"Enemy has been defeated!")
         elif card.type == "Skill":
             if card.name == "Defend": # This could be more generic later
                 self.armor += card.value

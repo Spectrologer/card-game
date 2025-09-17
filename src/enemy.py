@@ -11,16 +11,18 @@ if TYPE_CHECKING:
 class Enemy:
     """Represents an enemy in the game."""
 
-    def __init__(self, x, y):
+    def __init__(self, x: int, y: int, hp: int = 10):
         """
         Initializes the enemy.
 
         Args:
             x (int): The initial center x-coordinate.
             y (int): The initial center y-coordinate.
+            hp (int): The starting health of the enemy.
         """
         # --- Attributes ---
-        self.hp = 10
+        self.max_hp = hp
+        self.hp = hp
         self.armor = 0
         self.magic_defense = 0
         self.attack_damage = 10 # The damage this enemy will deal
